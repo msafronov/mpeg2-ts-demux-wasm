@@ -1,0 +1,23 @@
+{
+  "name": "mpeg2-ts-demux-wasm",
+  "version": "0.0.0-prealpha",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node ./example/server.js",
+    "build": "./scripts/build.sh",
+    "test": "jest ./test"
+  },
+  "keywords": [],
+  "author": "Matvey Safronov",
+  "license": "",
+  "dependencies": {
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "jest": "^29.3.1"
+  }
+}

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mpeg2-ts-demux-wasm</title>
+</head>
+<body>
+    hi! open <b>DevTools</b>
+
+    <script type="module">
+      const loadWASM = (url) => {
+        return WebAssembly.instantiateStreaming(fetch(url), {
+          env: {
+            log(value) {
+              console.log('log:', value);
+            },
+          },
+        });
+      };
+
+      const loadSegment = (url) => {
+        return fetch(url)
+          .then(response => response.arrayBuffer())
+          .then(buffer => new Uint8Array(buffer));
+      };
+
+      const start = async () => {
+        const wasm = await loadWASM('/mpeg2-ts-demux.wasm');
+
+        const segments = [
+          '/assets/segment_449kb_5sec.m2t',
+        ];
+
+        segments.forEach(async (segment) => {
+          const segmentBytes = await loadSegment(segment);
+
+          console.log(`%csegment: "${segment}"`, 'color: orange; font-weight: bold;');
+
+          console.time('wasm execution time');
+
+          wasm.instance.exports.malloc(segmentBytes.byteLength);
+
+          const segmentBuffer = new Uint8ClampedArray(
+              wasm.instance.exports.memory.buffer,
+              wasm.instance.exports.s_offset.value,
+          );
+
+          segmentBuffer.set(segmentBytes);
+
+          wasm.instance.exports.demux();
+
+          console.timeEnd('wasm execution time');
+
+          console.info(
+            'video elementary stream (h.264):',
+            new Uint8ClampedArray(
+              wasm.instance.exports.memory.buffer,
+              wasm.instance.exports.v_es_offset.value,
+              wasm.instance.exports.v_es_len.value,
+            ),
+          );
+
+          console.info(
+            'audio elementary stream (adts):',
+            new Uint8ClampedArray(
+              wasm.instance.exports.memory.buffer,
+              wasm.instance.exports.a_es_offset.value,
+              wasm.instance.exports.a_es_len.value,
+            ),
+          );
+        });
+      };
+      
+      start();
+    </script>
+</body>
+</html>
