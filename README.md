@@ -1,5 +1,7 @@
 # mpeg2-ts-demux-wasm
 
+![](https://img.shields.io/github/size/msafronov/mpeg2-ts-demux-wasm/dist/mpeg2-ts-demux.wasm?label=wasm%20binary%20size)
+
 High performance MPEG-2 Transport Stream demultiplexer via WebAssembly
 
 **Mission:**
