@@ -14,6 +14,8 @@
     (global $memory_segment_offset (export "s_offset") (mut i32) (i32.const 0x00))
     (global $memory_segment_length (export "s_len") (mut i32) (i32.const 0x00))
     (global $memory_metadata_offset (export "m_offset") (mut i32) (i32.const 0x00))
+    (global $metadata_current_offset (mut i32) (i32.const 0x00))
+    (global $memory_metadata_packet_length (export "m_p_len") i32 (i32.const 0x12))
     (global $memory_metadata_length (export "m_len") (mut i32) (i32.const 0x00))
     (global $memory_es_offset (export "es_offset") (mut i32) (i32.const 0x00))
     (global $memory_es_length (export "es_len") (mut i32) (i32.const 0x00))
@@ -36,6 +38,13 @@
 
     (global $pmt_elementary_pid_video (mut i32) (i32.const -0x01))
     (global $pmt_elementary_pid_audio (mut i32) (i32.const -0x01))
+
+    ;; 0x00 => "00" Without
+    ;; 0x80 => "10" PTS
+    ;; 0xC0 => "11" PTS + DTS
+    (global $pes_pts_dts_flags (mut i32) (i32.const 0x00))
+    (global $pes_pts (mut i32) (i32.const 0x00))
+    (global $pes_dts (mut i32) (i32.const 0x00))
 
 
     ;; ----------------------------------------------------
@@ -540,10 +549,11 @@
 
     (func $pes (param $offset i32)
         (local $pes_data_length i32)
+        (local $pts_dts_offset i32)
 
         ;; prefix checking
         (global.get $transport_packet_payload_unit_start_indicator)
-        
+
         (if
             (then
                 ;; packet_start_code_prefix
@@ -574,6 +584,91 @@
                         (return)   
                     )
                 )
+
+                ;; PTS_DTS_flags
+                (global.set
+                    $pes_pts_dts_flags
+                    (i32.and
+                        (i32.load8_u
+                            (i32.add
+                                (local.get $offset)
+                                (i32.const 0x07)))
+                        (i32.const 0xC0)))
+
+                (global.get $pes_pts_dts_flags)
+                (i32.const 0x00)
+                (i32.ne)
+
+                (if
+                    (then
+                        ;; offset
+                        (local.set
+                            $pts_dts_offset
+                            (i32.add
+                                (local.get $offset)
+                                (i32.const 0x09)))
+                        
+                        ;; pts
+                        (i32.eq
+                            (global.get $pes_pts_dts_flags)
+                            (i32.const 0x80))
+                        
+                        (if
+                            (then
+                                (call $pes_parse_pts
+                                    (local.get $pts_dts_offset))
+                            )
+                        )
+
+                        ;; pts + dts
+                        (i32.eq
+                            (global.get $pes_pts_dts_flags)
+                            (i32.const 0xC0))
+
+                        (if
+                            (then
+                                ;; pts
+                                (call $pes_parse_pts
+                                    (local.get $pts_dts_offset))
+                                ;; dts
+                                (call $pes_parse_dts
+                                    (local.get $pts_dts_offset))
+                            )
+                        )
+                    )
+                )
+
+                ;; record metadata
+
+                (global.set
+                    $metadata_current_offset
+                    (i32.add
+                        (global.get $memory_metadata_offset)
+                        (global.get $memory_metadata_length)))
+
+                (global.set
+                    $memory_metadata_length
+                    (i32.add
+                        (global.get $memory_metadata_length)
+                        (global.get $memory_metadata_packet_length)))
+
+                ;; pid
+                (i32.store
+                    (global.get $metadata_current_offset)
+                    (global.get $transport_packet_pid))
+
+                ;; pts and dts timestamps
+                (i32.store
+                    (i32.add
+                        (global.get $metadata_current_offset)
+                        (i32.const 0x0A))
+                    (global.get $pes_pts))
+
+                (i32.store
+                    (i32.add
+                        (global.get $metadata_current_offset)
+                        (i32.const 0x0E))
+                    (global.get $pes_dts))
             )
         )
 
@@ -598,19 +693,127 @@
         (local.set $offset)
 
         ;; record elementary stream
-        
         (memory.copy
             (i32.add
                 (global.get $memory_es_offset)
                 (global.get $memory_es_length))
             (local.get $offset)
             (local.get $pes_data_length))
+        
 
+        ;; record metadata
+
+        ;; offset in the linear memory (from es_offset to es_len)
+        (global.get $transport_packet_payload_unit_start_indicator)
+
+        (if
+            (then
+                (i32.store
+                    (i32.add
+                        (global.get $metadata_current_offset)
+                        (i32.const 0x02))
+                    (i32.add
+                        (global.get $memory_es_offset)
+                        (global.get $memory_es_length)))
+            )
+        )
+
+        ;; length
+        (i32.store
+            (i32.add
+                (global.get $metadata_current_offset)
+                (i32.const 0x06))
+            (i32.add
+                (i32.load
+                    (i32.add
+                        (global.get $metadata_current_offset)
+                        (i32.const 0x06)))
+                (local.get $pes_data_length)))
+
+        ;; increase es length
         (global.set
             $memory_es_length
             (i32.add
                 (global.get $memory_es_length)
                 (local.get $pes_data_length)))
+    )
+
+    (func $pes_parse_pts (param $offset i32)
+        (call $pes_parse_pts_dts
+            (local.get $offset))
+        
+        global.set $pes_pts
+    )
+
+    (func $pes_parse_dts (param $offset i32)
+        (call $pes_parse_pts_dts
+            (i32.add
+                (local.get $offset)
+                (i32.const 0x05)))
+
+        global.set $pes_dts
+    )
+
+    (func $pes_parse_pts_dts (param $offset i32) (result i32)
+        ;; algorithm:
+        ;; (1) | (2) | (3)
+
+        ;; (1)
+        ;; PTS [32..30] / DTS [32..30]
+        ;;
+        ;; (offset[0] & 0x0E) << 30)
+        (i32.shl
+            (i32.and
+                (i32.load8_u
+                    (local.get $offset))
+                (i32.const 0x0E))
+            (i32.const 0x1E))
+
+        ;; (2)
+        ;; PTS [29..15] / DTS [29..15]
+        ;;
+        ;; (((offset[1] << 8) | (offset[2] & 0xFE)) << 14)
+        (i32.shl
+            (i32.or
+                (i32.shl
+                    (i32.load8_u
+                        (i32.add
+                            (local.get $offset)
+                            (i32.const 0x01)))
+                    (i32.const 0x08))
+
+                (i32.and
+                    (i32.load8_u
+                        (i32.add
+                            (local.get $offset)
+                            (i32.const 0x02)))
+                    (i32.const 0xFE)))
+            (i32.const 0x0E))
+        
+        i32.or
+
+        ;; (3)
+        ;; PTS [14..0] / DTS [14..0]
+        ;;
+        ;; (((offset[3] << 8) | (offset[4] & 0xFE)) >> 1
+        (i32.shr_u
+            (i32.or
+                (i32.shl
+                    (i32.load8_u
+                        (i32.add
+                            (local.get $offset)
+                            (i32.const 0x03)))
+                    (i32.const 0x08))
+
+                (i32.and
+                    (i32.load8_u
+                        (i32.add
+                            (local.get $offset)
+                            (i32.const 0x04)))
+                    (i32.const 0xFE)))
+            (i32.const 0x01))
+
+        i32.or
     )
 
 

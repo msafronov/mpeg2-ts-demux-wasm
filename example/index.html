@@ -60,6 +60,15 @@
               wasm.instance.exports.es_len.value,
             ),
           );
+
+          console.info(
+            'metadata:',
+            new Uint8ClampedArray(
+              wasm.instance.exports.memory.buffer,
+              wasm.instance.exports.m_offset.value,
+              wasm.instance.exports.m_len.value,
+            ),
+          );
         });
       };
       
