@@ -15,12 +15,8 @@
     (global $memory_segment_length (export "s_len") (mut i32) (i32.const 0x00))
     (global $memory_metadata_offset (export "m_offset") (mut i32) (i32.const 0x00))
     (global $memory_metadata_length (export "m_len") (mut i32) (i32.const 0x00))
-    (global $memory_es_video_offset (export "v_es_offset") (mut i32) (i32.const 0x00))
-    (global $memory_es_video_length (export "v_es_len") (mut i32) (i32.const 0x00))
-    (global $memory_es_audio_offset (export "a_es_offset") (mut i32) (i32.const 0x00))
-    (global $memory_es_audio_length (export "a_es_len") (mut i32) (i32.const 0x00))
-
-    (global $stream_types_count i32 (i32.const 0x03))
+    (global $memory_es_offset (export "es_offset") (mut i32) (i32.const 0x00))
+    (global $memory_es_length (export "es_len") (mut i32) (i32.const 0x00))
 
     (global $transport_packet_size i32 (i32.const 0xBC))
     (global $transport_packet_header_size i32 (i32.const 0x04))
@@ -87,13 +83,13 @@
                         (f32.convert_i32_u
                             (i32.const 0x06))))))
 
-        ;; memory allocation
+        ;; memory allocation (ts + metadata + es blocks)
         (memory.grow
             (i32.sub
                 (i32.add
                     (i32.mul
                         (local.get $memory_blocks_for_segment_buffer)
-                        (global.get $stream_types_count))
+                        (i32.const 0x02))
                     (local.get $memory_blocks_for_metadata_buffer))
 
                 (memory.size)))
@@ -123,26 +119,15 @@
         (global.set $memory_metadata_length
             (i32.const 0x00))
 
-        ;; video offset and length updating
-        (global.set $memory_es_video_offset
+        ;; es offset and length updating
+        (global.set $memory_es_offset
             (i32.add
                 (global.get $memory_metadata_offset)
                 (i32.mul
                     (local.get $memory_blocks_for_metadata_buffer)
                     (global.get $memory_wasm_page_byte_count))))
 
-        (global.set $memory_es_video_length
-            (i32.const 0x00))
-
-        ;; audio offset and length updating
-        (global.set $memory_es_audio_offset
-            (i32.add
-                (global.get $memory_es_video_offset)
-                (i32.mul
-                    (local.get $memory_blocks_for_segment_buffer)
-                    (global.get $memory_wasm_page_byte_count))))
-
-        (global.set $memory_es_audio_length
+        (global.set $memory_es_length
             (i32.const 0x00))
 
         ;; success
@@ -554,9 +539,7 @@
     ;; ----------------------------------------------------
 
     (func $pes (param $offset i32)
-        (local $offset_with_header_data_length i32)
         (local $pes_data_length i32)
-        (local $tmp_swap i32)
 
         ;; prefix checking
         (global.get $transport_packet_payload_unit_start_indicator)
@@ -614,61 +597,20 @@
 
         (local.set $offset)
 
-        ;; record elementary streams
+        ;; record elementary stream
+        
+        (memory.copy
+            (i32.add
+                (global.get $memory_es_offset)
+                (global.get $memory_es_length))
+            (local.get $offset)
+            (local.get $pes_data_length))
 
-        ;; video
-        (i32.eq
-            (global.get $transport_packet_pid)
-            (global.get $pmt_elementary_pid_video))
-
-        (if
-            (then
-                global.get $memory_es_video_length
-                local.set $tmp_swap
-
-                (global.set
-                    $memory_es_video_length
-                    (i32.add
-                        (global.get $memory_es_video_length)
-                        (local.get $pes_data_length)))
-                
-                (memory.copy
-                    (i32.add
-                        (global.get $memory_es_video_offset)
-                        (local.get $tmp_swap))
-                    (local.get $offset)
-                    (local.get $pes_data_length))
-
-                (return)
-            )
-        )
-
-        ;; audio
-        (i32.eq
-            (global.get $transport_packet_pid)
-            (global.get $pmt_elementary_pid_audio))
-
-        (if
-            (then
-                global.get $memory_es_audio_length
-                local.set $tmp_swap
-
-                (global.set
-                    $memory_es_audio_length
-                    (i32.add
-                        (global.get $memory_es_audio_length)
-                        (local.get $pes_data_length)))
-
-                (memory.copy
-                    (i32.add
-                        (global.get $memory_es_audio_offset)
-                        (local.get $tmp_swap))
-                    (local.get $offset)
-                    (local.get $pes_data_length))
-
-                (return)
-            )
-        )
+        (global.set
+            $memory_es_length
+            (i32.add
+                (global.get $memory_es_length)
+                (local.get $pes_data_length)))
     )
 
 

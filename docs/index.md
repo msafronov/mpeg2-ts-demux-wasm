@@ -28,9 +28,9 @@ And the module will allocate the required number of blocks itself, and you donâ€
 
 <img src="./images/linear_memory_segment_inside.png" alt="ts segment inside linear memory" width="200"/>
 
-After that, the module will automatically allocate additional blocks for Elementary Streams (for video and audio).
+After that, the module will automatically allocate additional blocks for Elementary Streams (for video or audio).
 
-Each ES block size is equal to TS block size. Only in this case, ES will never overlap each other.
+ES block size is equal to TS block size.
 
 Variables are also exposed from the wasm module:
 
@@ -40,10 +40,8 @@ Variables are also exposed from the wasm module:
 |s_len|TS Segment length|uint bytes|
 |m_offset|Metadata offset|uint bytes|
 |m_len|Metadata length|uint bytes|
-|v_es_offset|Video Elementary Stream offset|uint bytes|
-|v_es_len|Video Elementary Stream length|uint bytes|
-|a_es_offset|Audio Elementary Stream offset|uint bytes|
-|a_es_len|Audio Elementary Stream length|uint bytes|
+|es_offset|Elementary Stream offset|uint bytes|
+|es_len|Elementary Stream length|uint bytes|
 
 ### demux()
 

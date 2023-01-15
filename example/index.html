@@ -53,20 +53,11 @@
           console.timeEnd('wasm execution time');
 
           console.info(
-            'video elementary stream (h.264):',
+            'elementary stream (h.264 / adts):',
             new Uint8ClampedArray(
               wasm.instance.exports.memory.buffer,
-              wasm.instance.exports.v_es_offset.value,
-              wasm.instance.exports.v_es_len.value,
-            ),
-          );
-
-          console.info(
-            'audio elementary stream (adts):',
-            new Uint8ClampedArray(
-              wasm.instance.exports.memory.buffer,
-              wasm.instance.exports.a_es_offset.value,
-              wasm.instance.exports.a_es_len.value,
+              wasm.instance.exports.es_offset.value,
+              wasm.instance.exports.es_len.value,
             ),
           );
         });
