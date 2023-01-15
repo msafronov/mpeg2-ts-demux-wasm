@@ -28,22 +28,18 @@ And the module will allocate the required number of blocks itself, and you donâ€
 
 <img src="./images/linear_memory_segment_inside.png" alt="ts segment inside linear memory" width="200"/>
 
-After that, the module will automatically allocate additional blocks for Elementary Streams (for video and audio):
-
-<img src="./images/linear_memory_segment_inside2.png" alt="ts segment inside linear memory with ES" width="400"/>
+After that, the module will automatically allocate additional blocks for Elementary Streams (for video and audio).
 
 Each ES block size is equal to TS block size. Only in this case, ES will never overlap each other.
 
-Technically, it will look something like this:
-
-<img src="./images/linear_memory_scheme.png" alt="linear memory scheme after malloc" width="400"/>
-
-All these variables from the picture above are also exposed from the wasm module:
+Variables are also exposed from the wasm module:
 
 |name|description||
 |---|---|---|
 |s_offset|TS Segment offset|uint bytes|
 |s_len|TS Segment length|uint bytes|
+|m_offset|Metadata offset|uint bytes|
+|m_len|Metadata length|uint bytes|
 |v_es_offset|Video Elementary Stream offset|uint bytes|
 |v_es_len|Video Elementary Stream length|uint bytes|
 |a_es_offset|Audio Elementary Stream offset|uint bytes|

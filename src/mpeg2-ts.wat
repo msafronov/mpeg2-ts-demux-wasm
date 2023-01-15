@@ -13,6 +13,8 @@
     (global $memory_cursor_offset (mut i32) (i32.const 0x00))
     (global $memory_segment_offset (export "s_offset") (mut i32) (i32.const 0x00))
     (global $memory_segment_length (export "s_len") (mut i32) (i32.const 0x00))
+    (global $memory_metadata_offset (export "m_offset") (mut i32) (i32.const 0x00))
+    (global $memory_metadata_length (export "m_len") (mut i32) (i32.const 0x00))
     (global $memory_es_video_offset (export "v_es_offset") (mut i32) (i32.const 0x00))
     (global $memory_es_video_length (export "v_es_len") (mut i32) (i32.const 0x00))
     (global $memory_es_audio_offset (export "a_es_offset") (mut i32) (i32.const 0x00))
@@ -46,6 +48,7 @@
 
     (func $malloc (export "malloc") (param $segment_buffer_length i32) (result i32)
         (local $memory_blocks_for_segment_buffer i32)
+        (local $memory_blocks_for_metadata_buffer i32)
 
         ;; memory allocation is not necessary when new buffer is smaller than existing buffer
         (i32.le_u
@@ -62,7 +65,7 @@
             )
         )
 
-        ;; memory allocation for new segment buffer length
+        ;; calculate necessary segment memory blocks count
         (local.set
             $memory_blocks_for_segment_buffer
             (i32.trunc_f32_u
@@ -72,12 +75,26 @@
                             (local.get $segment_buffer_length))
                         (f32.convert_i32_u
                             (global.get $memory_wasm_page_byte_count))))))
+        
+        ;; calculate necessary metadata memory blocks count
+        (local.set
+            $memory_blocks_for_metadata_buffer
+            (i32.trunc_f32_u
+                (f32.ceil
+                    (f32.div
+                        (f32.convert_i32_u
+                            (local.get $memory_blocks_for_segment_buffer))
+                        (f32.convert_i32_u
+                            (i32.const 0x06))))))
 
+        ;; memory allocation
         (memory.grow
             (i32.sub
-                (i32.mul
-                    (local.get $memory_blocks_for_segment_buffer)
-                    (global.get $stream_types_count))
+                (i32.add
+                    (i32.mul
+                        (local.get $memory_blocks_for_segment_buffer)
+                        (global.get $stream_types_count))
+                    (local.get $memory_blocks_for_metadata_buffer))
 
                 (memory.size)))
 
@@ -97,22 +114,33 @@
             $memory_segment_length
             (local.get $segment_buffer_length))
 
-        ;; video offset and length updating
-        (global.set $memory_es_video_offset
+        ;; metadata offset and length updating
+        (global.set $memory_metadata_offset
             (i32.mul
                 (local.get $memory_blocks_for_segment_buffer)
                 (global.get $memory_wasm_page_byte_count)))
+
+        (global.set $memory_metadata_length
+            (i32.const 0x00))
+
+        ;; video offset and length updating
+        (global.set $memory_es_video_offset
+            (i32.add
+                (global.get $memory_metadata_offset)
+                (i32.mul
+                    (local.get $memory_blocks_for_metadata_buffer)
+                    (global.get $memory_wasm_page_byte_count))))
 
         (global.set $memory_es_video_length
             (i32.const 0x00))
 
         ;; audio offset and length updating
         (global.set $memory_es_audio_offset
-            (i32.mul
+            (i32.add
+                (global.get $memory_es_video_offset)
                 (i32.mul
                     (local.get $memory_blocks_for_segment_buffer)
-                    (i32.const 0x02))
-                (global.get $memory_wasm_page_byte_count)))
+                    (global.get $memory_wasm_page_byte_count))))
 
         (global.set $memory_es_audio_length
             (i32.const 0x00))
