@@ -1,4 +1,4 @@
-const { getInstance } = require('./utils');
+const { getInstance } = require('./utils/getInstance');
 
 describe('malloc', () => {
   describe('memory management', () => {

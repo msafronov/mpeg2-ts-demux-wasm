@@ -40,6 +40,7 @@ Variables are also exposed from the wasm module:
 |s_len|TS Segment length|uint bytes|
 |m_offset|Metadata offset|uint bytes|
 |m_len|Metadata length|uint bytes|
+|m_p_len|Metadata packet length (1 packet per 1 elementary stream)|uint bytes|
 |es_offset|Elementary Stream offset|uint bytes|
 |es_len|Elementary Stream length|uint bytes|
 
@@ -50,5 +51,18 @@ Now everything is ready for demuxing! Next, we simply call the appropriate metho
 ```
 module.demux();
 ```
+
+## Metadata
+
+18 bytes
+
+|name|range (bytes)||
+|---|---|---|
+|pid|0 .. 1|Little-endian|
+|offset|2 .. 5|Little-endian|
+|length|6 .. 9|Little-endian|
+|pts|10 .. 13|Little-endian|
+|dts|14 .. 17|Little-endian|
+
 
 *Work in progress...*
