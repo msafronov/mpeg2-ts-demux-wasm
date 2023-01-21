@@ -1,4 +1,5 @@
-const { getInstance, getDemuxedInstance } = require('./utils/getInstance');
+const { getInstance } = require('./utils/getInstance');
+const { getDemuxedInstance  } = require('./utils/getDemuxedInstance');
 const { getMetadataPacket } = require('./utils/getMetadataPacket');
 
 const segment_449kb_5sec = require('./mocks/segment_449kb_5sec');
