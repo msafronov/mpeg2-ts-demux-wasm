@@ -10,13 +10,7 @@
 
     <script type="module">
       const loadWASM = (url) => {
-        return WebAssembly.instantiateStreaming(fetch(url), {
-          env: {
-            log(value) {
-              console.log('log:', value);
-            },
-          },
-        });
+        return WebAssembly.instantiateStreaming(fetch(url));
       };
 
       const loadSegment = (url) => {
